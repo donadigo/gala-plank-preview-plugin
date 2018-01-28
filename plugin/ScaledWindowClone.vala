@@ -24,7 +24,6 @@ namespace Gala
         public float max_height { get; construct; }
 
         Clutter.Actor clone;
-        Clutter.Actor container;
 
         construct
         {
