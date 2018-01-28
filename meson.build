@@ -25,5 +25,3 @@ lib = shared_library ('plank-preview',
                     dependencies: deps,
                     install: true,
                     install_dir: join_paths (get_option('libdir'), 'gala', 'plugins'))
-
-meson.add_install_script('meson/post_install.py')
