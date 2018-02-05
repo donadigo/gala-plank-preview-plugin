@@ -23,6 +23,8 @@ namespace Gala
         const float MAX_PREVIEW_WIDTH = 300;
         const float MAX_PREVIEW_HEIGHT = 150;
         const int SPACING = 24;
+        const int PREVIEW_MARGIN = 12;
+        const int DOCK_OFFSET = 12;
 
         public WindowManager wm { get; construct; }  
         public signal void closed ();
@@ -31,20 +33,18 @@ namespace Gala
 
         Clutter.Actor container;
 
+        int px;
+        int py;
         uint close_timeout_id;
 
         construct 
         {
-            background_color = { 255, 0, 0, 50 };
+            background_color = { 255, 255, 255, 240 };
 
             reactive = true;
             container = new Clutter.Actor ();
+            container.set_pivot_point (0.5f, 0.5f);
             add_child (container);
-
-            float screen_width, screen_height;
-            wm.get_screen ().get_size (out screen_width, out screen_height);
-            set_size (screen_width, screen_height);
-            set_position (0, 0);
         }
 
         public WindowPreviewActor (WindowManager wm)
@@ -78,18 +78,45 @@ namespace Gala
         public void close ()
         {
             closed ();
-            destroy ();
+            hide ();
         }
 
-        public override bool button_press_event (Clutter.ButtonEvent event)
+        public void open ()
         {
-            if (event.button != 1) {
-                return false;
-            }
-            
-            close ();
-            return true;
+            y += 20;
+            opacity = 0;
+
+            save_easing_state ();
+            set_easing_duration (200);
+            y -= 20;
+            opacity = 255;
+            restore_easing_state ();
         }
+
+        public override void hide ()
+        {
+            save_easing_state ();
+            set_easing_duration (200);
+            y += 20;
+            opacity = 0;
+
+            restore_easing_state ();
+            ulong completed_id = 0UL;
+            completed_id = transitions_completed.connect (() => {
+                disconnect (completed_id);
+                destroy ();
+            });
+        }
+
+        //  public override bool button_press_event (Clutter.ButtonEvent event)
+        //  {
+        //      if (event.button != 1) {
+        //          return false;
+        //      }
+            
+        //      close ();
+        //      return true;
+        //  }
 
         public bool set_application (Bamf.Application app)
         {
@@ -101,7 +128,7 @@ namespace Gala
             unowned List<weak Meta.WindowActor>? actors = Meta.Compositor.get_window_actors (wm.get_screen ());
 
             container.remove_all_children ();
-            container.width = 0;
+            //  container.width = 0;
             for (int i = 0; i < xids.length; i++) {
                 uint32 xid = xids.index (i);
                 unowned Meta.WindowActor? actor = find_actor_for_xid (actors, xid);
@@ -110,8 +137,18 @@ namespace Gala
                 }
                 
                 var clone = new ScaledWindowClone (actor, MAX_PREVIEW_WIDTH, MAX_PREVIEW_HEIGHT);
+                clone.activated.connect (() => close ());
+                clone.removed.connect (() => {
+                    container.remove (clone);
+                    clone.destroy ();
+                    reallocate ();
+                    set_preview_position (px, py);
 
-                container.width += clone.width;
+                    if (container.get_n_children () == 0) {
+                        close ();
+                    }
+                });
+
                 container.add_child (clone);
             }
 
@@ -122,12 +159,41 @@ namespace Gala
 
         public void set_preview_position (int x, int y)
         {
-            set_position (x - container.width / 2, y - container.height);
-            set_size (container.width, container.height);
+            px = x;
+            py = y;
+
+            float width = container.width + PREVIEW_MARGIN * 2;
+            float height = container.height + PREVIEW_MARGIN * 2;
+
+            save_easing_state ();
+            set_easing_duration (200);
+
+            set_position (x - width / 2, y - height - DOCK_OFFSET);
+            set_size (width, height);
+
+            container.set_position (width / 2 - container.width / 2 , height / 2 - container.height / 2);
+            restore_easing_state ();
+        }
+
+        void update_container_width ()
+        {
+            float width = 0;
+            var children = container.get_children ();
+
+            for (int i = 0; i < children.length (); i++) {
+                width += children.nth_data (i).get_width ();
+
+                if (i != 0) {
+                    width += SPACING;
+                }
+            }
+
+            container.width = width;
         }
 
         void reallocate ()
         {
+            update_container_width ();
             var children = container.get_children ();
 
             float offset = 0;

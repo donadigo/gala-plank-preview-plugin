@@ -80,6 +80,7 @@ public class Gala.Plugins.Plank.DBusServer : Object
         
                     track (preview_actor);
                     wm.ui_group.add_child (preview_actor);
+                    preview_actor.open ();
                     prev_launcher = launcher;
                     return true;
                 } else {
@@ -107,7 +108,7 @@ public class Gala.Plugins.Plank.DBusServer : Object
         }
 
         untrack (preview_actor);
-        preview_actor.destroy ();
+        preview_actor.hide ();
         preview_actor = null;
     }
 
